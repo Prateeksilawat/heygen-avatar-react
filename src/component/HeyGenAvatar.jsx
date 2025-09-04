@@ -4,6 +4,8 @@ import StreamingAvatar, {
   StreamingEvents,
   AvatarQuality,
 } from "@heygen/streaming-avatar";
+import OpenAIAssistant from "../openai-assistant";
+
 
 const HeyGenAvatar = () => {
   const videoRef = useRef(null);
@@ -11,14 +13,17 @@ const HeyGenAvatar = () => {
   const [session, setSession] = useState(null);
   const [inputText, setInputText] = useState("");
   const [isVoiceChat, setIsVoiceChat] = useState(false);
+  const [assistant, setAssistant] = useState(null); // ✅ store assistant instance
+  const [isAssistantReady, setIsAssistantReady] = useState(false); // ✅ track readiness
 
-  const apiKey = import.meta.env.VITE_HEYGEN_API_KEY;
+  const heygenKey = import.meta.env.VITE_HEYGEN_API_KEY;
+  const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
-  // 🔑 Fetch temporary access token
+  // 🔑 Fetch temporary access token for HeyGen
   const fetchAccessToken = async () => {
     const res = await fetch("https://api.heygen.com/v1/streaming.create_token", {
       method: "POST",
-      headers: { "x-api-key": apiKey },
+      headers: { "x-api-key": heygenKey },
     });
     const { data } = await res.json();
     return data.token;
@@ -39,24 +44,30 @@ const HeyGenAvatar = () => {
               await videoRef.current.play();
               console.log("🎥 Avatar stream playing with audio");
             } catch (err) {
-              console.warn("⚠️ Autoplay blocked, waiting for user gesture:", err);
+              console.warn("⚠️ Autoplay blocked:", err);
             }
           };
         }
       });
 
       avatarInstance.on(StreamingEvents.STREAM_DISCONNECTED, () => {
-        console.log("Stream disconnected");
         if (videoRef.current) videoRef.current.srcObject = null;
+        console.log("Stream disconnected");
       });
 
       const sessionData = await avatarInstance.createStartAvatar({
-        avatarName: "Wayne_20240711", // 👈 replace with your avatar ID
+        avatarName: "Wayne_20240711", // 👈 your avatar ID
         quality: AvatarQuality.High,
       });
 
       setSession(sessionData);
       console.log("✅ Session started:", sessionData.session_id);
+
+      // 🔥 Init OpenAI assistant
+      const ai = new OpenAIAssistant(openaiKey);
+      await ai.initialize();
+      setAssistant(ai);
+      setIsAssistantReady(true); // ✅ mark ready
     } catch (err) {
       console.error("⚠️ Error starting session:", err);
     }
@@ -72,28 +83,38 @@ const HeyGenAvatar = () => {
       if (videoRef.current) videoRef.current.srcObject = null;
       setAvatar(null);
       setSession(null);
+      setAssistant(null);
+      setIsAssistantReady(false);
       console.log("👋 Session ended");
     }
   };
 
-  // 💬 Speak typed text
+  // 💬 Speak typed text via OpenAI
   const speakText = async () => {
-    if (!avatar || !session || !inputText) return;
+    if (!avatar || !session || !inputText || !assistant) return;
     try {
-      await avatar.speak({ text: inputText, task_type: TaskType.REPEAT });
+      // 👉 Get OpenAI response
+      const aiResponse = await assistant.sendMessage(inputText);
+
+      // 👉 Avatar speaks OpenAI answer
+      await avatar.speak({
+        text: aiResponse,
+        task_type: TaskType.REPEAT,
+      });
+
       setInputText("");
     } catch (err) {
       console.error("⚠️ Error making avatar speak:", err);
     }
   };
 
-  // 🎤 Start voice chat
+  // 🎤 Start voice chat (STT integration can be added later)
   const startVoiceChat = async () => {
     if (!avatar || !session) return;
     try {
       await avatar.startVoiceChat({
         sessionId: session.session_id,
-        audio: true, // capture mic
+        audio: true,
       });
       setIsVoiceChat(true);
       console.log("🎤 Voice chat started");
@@ -118,7 +139,7 @@ const HeyGenAvatar = () => {
     <main
       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}
     >
-      <h1>HeyGen Avatar (React + Voice Talk)</h1>
+      <h1>HeyGen Avatar + OpenAI Assistant</h1>
 
       {/* Video */}
       <video
@@ -127,7 +148,7 @@ const HeyGenAvatar = () => {
         playsInline
         muted={false}
         controls
-        style={{ borderRadius: "12px",height:"400px",width:"400px" }}
+        style={{ borderRadius: "12px", height: "400px", width: "400px" }}
       />
 
       {/* Controls */}
@@ -140,6 +161,7 @@ const HeyGenAvatar = () => {
         </button>
       </div>
 
+      {/* Input + Ask AI */}
       <div style={{ marginTop: "1rem" }}>
         <input
           type="text"
@@ -148,8 +170,11 @@ const HeyGenAvatar = () => {
           onChange={(e) => setInputText(e.target.value)}
           style={{ marginRight: "0.5rem" }}
         />
-        <button onClick={speakText} disabled={!session || !inputText}>
-          Speak
+        <button
+          onClick={speakText}
+          disabled={!session || !inputText || !isAssistantReady} // ✅ disabled until assistant ready
+        >
+          Ask AI
         </button>
       </div>
 
