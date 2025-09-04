@@ -6,7 +6,6 @@ import StreamingAvatar, {
 } from "@heygen/streaming-avatar";
 import OpenAIAssistant from "../openai-assistant";
 
-
 const HeyGenAvatar = () => {
   const videoRef = useRef(null);
   const [avatar, setAvatar] = useState(null);
@@ -21,10 +20,13 @@ const HeyGenAvatar = () => {
 
   // 🔑 Fetch temporary access token for HeyGen
   const fetchAccessToken = async () => {
-    const res = await fetch("https://api.heygen.com/v1/streaming.create_token", {
-      method: "POST",
-      headers: { "x-api-key": heygenKey },
-    });
+    const res = await fetch(
+      "https://api.heygen.com/v1/streaming.create_token",
+      {
+        method: "POST",
+        headers: { "x-api-key": heygenKey },
+      }
+    );
     const { data } = await res.json();
     return data.token;
   };
@@ -43,6 +45,13 @@ const HeyGenAvatar = () => {
             try {
               await videoRef.current.play();
               console.log("🎥 Avatar stream playing with audio");
+              // 💬 Ask for Google review now that avatar is ready
+              const reviewMessage =
+                "नमस्ते! अगर आपको हमारी सेवा पसंद आई हो, तो कृपया हमें Google पर रिव्यू दें। आपका फीडबैक हमें बेहतर बनाने में मदद करता है।";
+              await avatarInstance.speak({
+                text: reviewMessage,
+                task_type: TaskType.REPEAT,
+              });
             } catch (err) {
               console.warn("⚠️ Autoplay blocked:", err);
             }
@@ -137,7 +146,12 @@ const HeyGenAvatar = () => {
 
   return (
     <main
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "1rem",
+      }}
     >
       <h1>HeyGen Avatar + OpenAI Assistant</h1>
 
@@ -156,7 +170,11 @@ const HeyGenAvatar = () => {
         <button onClick={startSession} disabled={!!session}>
           Start Session
         </button>
-        <button onClick={endSession} disabled={!session} style={{ marginLeft: "0.5rem" }}>
+        <button
+          onClick={endSession}
+          disabled={!session}
+          style={{ marginLeft: "0.5rem" }}
+        >
           End Session
         </button>
       </div>
