@@ -47,7 +47,7 @@ const HeyGenAvatar = () => {
               console.log("🎥 Avatar stream playing with audio");
               // 💬 Ask for Google review now that avatar is ready
               const reviewMessage =
-                "नमस्ते! अगर आपको हमारी सेवा पसंद आई हो, तो कृपया हमें Google पर रिव्यू दें। आपका फीडबैक हमें बेहतर बनाने में मदद करता है।";
+                "Hello! If you liked our service, please leave us a review on Google. Your feedback helps us improve.";
               await avatarInstance.speak({
                 text: reviewMessage,
                 task_type: TaskType.REPEAT,
